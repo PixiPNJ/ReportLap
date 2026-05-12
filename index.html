@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Reporte Laptops</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --primary: #1a56db;
+    --primary-dark: #1048b8;
+    --primary-light: #e8f0fe;
+    --success: #0f7b41;
+    --success-bg: #d1fae5;
+    --danger: #c81e1e;
+    --danger-bg: #fee2e2;
+    --warning: #92400e;
+    --warning-bg: #fef3c7;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    min-height: 100vh;
+    padding-bottom: 2rem;
+  }
+
+  header {
+    background: var(--primary);
+    color: #fff;
+    padding: 1rem 1.25rem 0.85rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  header h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  header p { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+  .tabs {
+    display: flex;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 65px;
+    z-index: 99;
+  }
+  .tab {
+    flex: 1;
+    padding: 0.75rem 0.5rem;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  .section { display: none; padding: 1rem; }
+  .section.active { display: block; }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 1rem 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  select, textarea, input[type="text"] {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    font-size: 15px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+  select:focus, textarea:focus, input[type="text"]:focus {
+    border-color: var(--primary);
+    background: #fff;
+  }
+
+  .select-wrapper { position: relative; }
+  .select-wrapper::after {
+    content: '▾';
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+    font-size: 13px;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 90px;
+    line-height: 1.5;
+  }
+
+  .status-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 2px;
+  }
+  .status-btn {
+    flex: 1;
+    padding: 0.65rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .status-btn.ok.active { background: var(--success-bg); border-color: var(--success); color: var(--success); }
+  .status-btn.falla.active { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+  .status-btn:not(.active) { color: var(--text-muted); }
+
+  .incidencia-box { margin-top: 0.75rem; display: none; }
+  .incidencia-box.visible { display: block; }
+
+  .btn-main {
+    width: 100%;
+    padding: 0.85rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: background 0.15s;
+    letter-spacing: 0.2px;
+  }
+  .btn-main:active { background: var(--primary-dark); }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 0.8rem;
+    background: var(--bg);
+    color: var(--primary);
+    border: 1.5px solid var(--primary);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-secondary:active { background: var(--primary-light); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge-ok { background: var(--success-bg); color: var(--success); }
+  .badge-falla { background: var(--danger-bg); color: var(--danger); }
+  .badge-modelo { background: var(--primary-light); color: var(--primary); font-size: 11px; }
+
+  .laptop-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--border);
+    gap: 0.75rem;
+  }
+  .laptop-item:last-child { border-bottom: none; }
+  .laptop-num {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: var(--primary-light);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .laptop-num.falla-num { background: var(--danger-bg); color: var(--danger); }
+  .laptop-info { flex: 1; min-width: 0; }
+  .laptop-info .model-text { font-size: 11px; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .laptop-info .desc-text { font-size: 12.5px; color: var(--text); margin-top: 3px; line-height: 1.4; }
+
+  .stats-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .stat-box {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    text-align: center;
+  }
+  .stat-num { font-size: 22px; font-weight: 700; }
+  .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .stat-ok .stat-num { color: var(--success); }
+  .stat-falla .stat-num { color: var(--danger); }
+  .stat-total .stat-num { color: var(--primary); }
+
+  .export-section { padding: 1rem; }
+  .fecha-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .fecha-row label { margin: 0; white-space: nowrap; flex-shrink: 0; }
+
+  .empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 0.5rem; }
+
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #1e293b;
+    color: #fff;
+    padding: 0.7rem 1.4rem;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 999;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .filter-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .filter-btn {
+    padding: 0.4rem 0.9rem;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-muted);
+  }
+  .filter-btn.active-f { background: var(--primary); border-color: var(--primary); color: #fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 Reporte de Laptops</h1>
+  <p id="header-sub">Semana del <span id="fecha-header"></span></p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('registrar')">✏️ Registrar</button>
+  <button class="tab" onclick="switchTab('resumen')">📊 Resumen</button>
+  <button class="tab" onclick="switchTab('exportar')">⬇️ Exportar</button>
+</div>
+
+<!-- TAB REGISTRAR -->
+<div id="tab-registrar" class="section active">
+  <div class="card">
+    <label>Laptop N°</label>
+    <div class="select-wrapper">
+      <select id="sel-laptop" onchange="onLaptopChange()">
+        <option value="">— Seleccionar laptop —</option>
+      </select>
+    </div>
+    <div style="margin-top:8px;" id="modelo-display" style="display:none;"></div>
+  </div>
+
+  <div class="card">
+    <label>Estado</label>
+    <div class="status-toggle">
+      <button class="status-btn ok active" id="btn-ok" onclick="setStatus('OK')">✅ OK</button>
+      <button class="status-btn falla" id="btn-falla" onclick="setStatus('FALLA')">⚠️ Con Incidencia</button>
+    </div>
+    <div class="incidencia-box" id="incidencia-box">
+      <label style="margin-top:0.6rem;">Descripción de la incidencia</label>
+      <textarea id="txt-incidencia" placeholder="Ej: Falta tecla H, no funciona mouse USB, falta cable IEC C5..."></textarea>
+    </div>
+  </div>
+
+  <button class="btn-main" onclick="guardarRegistro()">💾 Guardar Registro</button>
+</div>
+
+<!-- TAB RESUMEN -->
+<div id="tab-resumen" class="section">
+  <div class="stats-row">
+    <div class="stat-box stat-total"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Total</div></div>
+    <div class="stat-box stat-ok"><div class="stat-num" id="stat-ok">0</div><div class="stat-label">OK</div></div>
+    <div class="stat-box stat-falla"><div class="stat-num" id="stat-falla">0</div><div class="stat-label">Incidencias</div></div>
+  </div>
+
+  <div class="filter-row">
+    <button class="filter-btn active-f" id="f-todas" onclick="setFiltro('todas')">Todas</button>
+    <button class="filter-btn" id="f-ok" onclick="setFiltro('ok')">Solo OK</button>
+    <button class="filter-btn" id="f-falla" onclick="setFiltro('falla')">Incidencias</button>
+  </div>
+
+  <div class="card" style="padding: 0.5rem 1rem;" id="lista-laptops">
+    <div class="empty-state"><div class="icon">📂</div>Sin registros aún</div>
+  </div>
+</div>
+
+<!-- TAB EXPORTAR -->
+<div id="tab-exportar" class="section export-section">
+  <div class="card">
+    <label>Fecha del reporte</label>
+    <input type="text" id="input-fecha" placeholder="Ej: 09-07-2025">
+    <p style="font-size:12px; color:var(--text-muted); margin-top:6px;">Se incluirá en el nombre del archivo Excel.</p>
+  </div>
+
+  <div class="card">
+    <label>Resumen antes de exportar</label>
+    <div class="stats-row" style="margin-bottom:0;">
+      <div class="stat-box stat-total"><div class="stat-num" id="exp-total">0</div><div class="stat-label">Laptops</div></div>
+      <div class="stat-box stat-ok"><div class="stat-num" id="exp-ok">0</div><div class="stat-label">OK</div></div>
+      <div class="stat-box stat-falla"><div class="stat-num" id="exp-falla">0</div><div class="stat-label">Incidencias</div></div>
+    </div>
+  </div>
+
+  <button class="btn-main" onclick="exportarExcel()">📥 Descargar Excel</button>
+  <div style="margin-top: 0.5rem;"></div>
+  <button class="btn-secondary" onclick="resetearTodo()">🗑️ Limpiar todos los datos</button>
+  <p style="font-size:12px; color:var(--text-muted); text-align:center; margin-top:0.75rem;">El Excel incluye todas las 41 laptops, con OK en las que no tienen incidencia registrada.</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const LAPTOPS = [];
+const MODELOS = {
+  hp: 'HP Pavilion Gaming 15-dk0015la',
+  dell3520: 'Dell Inspiron 15 3520',
+  dell3593: 'Dell Inspiron 15 3593'
+};
+
+function getModelo(n) {
+  if ([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,18,20,21,22,23,24,25,36,37,38].includes(n)) return 'hp';
+  if ([16,17,19,26,27,28,29,30,31,32,33,39,41].includes(n)) return 'dell3520';
+  if ([34,35,40].includes(n)) return 'dell3593';
+  return 'hp';
+}
+
+for (let i = 1; i <= 41; i++) LAPTOPS.push({ num: i, modelo: getModelo(i) });
+
+const sel = document.getElementById('sel-laptop');
+LAPTOPS.forEach(l => {
+  const opt = document.createElement('option');
+  opt.value = l.num;
+  const abrev = l.modelo === 'hp' ? 'HP' : l.modelo === 'dell3520' ? 'Dell 3520' : 'Dell 3593';
+  opt.textContent = `Laptop #${l.num.toString().padStart(2,'0')} — ${abrev}`;
+  sel.appendChild(opt);
+});
+
+let datos = JSON.parse(localStorage.getItem('laptop_datos') || '{}');
+let estadoActual = 'OK';
+let filtroActual = 'todas';
+
+const hoy = new Date();
+document.getElementById('fecha-header').textContent = hoy.toLocaleDateString('es-CL');
+document.getElementById('input-fecha').value = hoy.toLocaleDateString('es-CL').replace(/\//g, '-');
+
+function switchTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'resumen' || tab === 'exportar') actualizarResumen();
+}
+
+function onLaptopChange() {
+  const n = parseInt(sel.value);
+  const disp = document.getElementById('modelo-display');
+  if (!n) { disp.innerHTML = ''; return; }
+  const l = LAPTOPS.find(x => x.num === n);
+  const prev = datos[n];
+  disp.innerHTML = `<span class="badge badge-modelo">🖥️ ${MODELOS[l.modelo]}</span>`;
+  if (prev) {
+    setStatus(prev.estado);
+    document.getElementById('txt-incidencia').value = prev.incidencia || '';
+  } else {
+    setStatus('OK');
+    document.getElementById('txt-incidencia').value = '';
+  }
+}
+
+function setStatus(s) {
+  estadoActual = s;
+  document.getElementById('btn-ok').classList.toggle('active', s === 'OK');
+  document.getElementById('btn-falla').classList.toggle('active', s === 'FALLA');
+  document.getElementById('incidencia-box').classList.toggle('visible', s === 'FALLA');
+}
+
+function guardarRegistro() {
+  const n = parseInt(sel.value);
+  if (!n) { showToast('⚠️ Selecciona una laptop'); return; }
+  const inc = document.getElementById('txt-incidencia').value.trim();
+  if (estadoActual === 'FALLA' && !inc) { showToast('⚠️ Describe la incidencia'); return; }
+  datos[n] = { estado: estadoActual, incidencia: estadoActual === 'FALLA' ? inc : '' };
+  localStorage.setItem('laptop_datos', JSON.stringify(datos));
+  showToast(`✅ Laptop #${n} guardada`);
+  sel.value = '';
+  document.getElementById('modelo-display').innerHTML = '';
+  setStatus('OK');
+  document.getElementById('txt-incidencia').value = '';
+}
+
+function setFiltro(f) {
+  filtroActual = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-f'));
+  document.getElementById('f-' + f).classList.add('active-f');
+  actualizarResumen();
+}
+
+function actualizarResumen() {
+  let ok = 0, falla = 0;
+  Object.values(datos).forEach(d => d.estado === 'OK' ? ok++ : falla++);
+  document.getElementById('stat-total').textContent = Object.keys(datos).length;
+  document.getElementById('stat-ok').textContent = ok;
+  document.getElementById('stat-falla').textContent = falla;
+  document.getElementById('exp-total').textContent = 41;
+  document.getElementById('exp-ok').textContent = 41 - falla;
+  document.getElementById('exp-falla').textContent = falla;
+
+  const lista = document.getElementById('lista-laptops');
+  const registradas = Object.keys(datos).map(Number).sort((a,b)=>a-b);
+  let items = registradas;
+  if (filtroActual === 'ok') items = registradas.filter(n => datos[n].estado === 'OK');
+  if (filtroActual === 'falla') items = registradas.filter(n => datos[n].estado === 'FALLA');
+
+  if (items.length === 0) {
+    lista.innerHTML = '<div class="empty-state"><div class="icon">📂</div>Sin registros que mostrar</div>';
+    return;
+  }
+  lista.innerHTML = items.map(n => {
+    const d = datos[n];
+    const l = LAPTOPS.find(x => x.num === n);
+    const abrev = l.modelo === 'hp' ? 'HP Gaming' : l.modelo === 'dell3520' ? 'Dell 3520' : 'Dell 3593';
+    const esFalla = d.estado === 'FALLA';
+    return `<div class="laptop-item">
+      <div class="laptop-num ${esFalla ? 'falla-num' : ''}">${n}</div>
+      <div class="laptop-info">
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span style="font-weight:600; font-size:14px;">Laptop #${n}</span>
+          <span class="badge ${esFalla ? 'badge-falla' : 'badge-ok'}">${esFalla ? '⚠️ Falla' : '✅ OK'}</span>
+          <span class="badge badge-modelo">${abrev}</span>
+        </div>
+        ${esFalla ? `<div class="desc-text">${d.incidencia}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function exportarExcel() {
+  const fecha = document.getElementById('input-fecha').value || hoy.toLocaleDateString('es-CL').replace(/\//g, '-');
+  const rows = [['N° Laptop', 'Modelo', 'Estado', 'Incidencia / Observación', 'Fecha Reporte']];
+  LAPTOPS.forEach(l => {
+    const d = datos[l.num];
+    rows.push([
+      `Laptop #${l.num.toString().padStart(2,'0')}`,
+      MODELOS[l.modelo],
+      d ? d.estado : 'OK',
+      d && d.estado === 'FALLA' ? d.incidencia : 'Sin incidencias',
+      fecha
+    ]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  ws['!cols'] = [
+    { wch: 14 }, { wch: 35 }, { wch: 12 }, { wch: 50 }, { wch: 14 }
+  ];
+
+  const headerStyle = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { patternType: 'solid', fgColor: { rgb: '1a56db' } }, alignment: { horizontal: 'center' } };
+  ['A1','B1','C1','D1','E1'].forEach(ref => {
+    if (ws[ref]) ws[ref].s = headerStyle;
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
+  XLSX.writeFile(wb, `Reporte_Laptops_${fecha}.xlsx`);
+  showToast('📥 Excel descargado');
+}
+
+function resetearTodo() {
+  if (confirm('¿Seguro que quieres borrar todos los registros?')) {
+    datos = {};
+    localStorage.removeItem('laptop_datos');
+    actualizarResumen();
+    showToast('🗑️ Datos limpiados');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
