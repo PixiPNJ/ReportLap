@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Reporte Laptops</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root {
     --primary: #3b82f6;
@@ -458,6 +460,8 @@
 
   <button class="btn-main" onclick="exportarExcel()">📥 Descargar Excel</button>
   <div style="margin-top: 0.5rem;"></div>
+  <button class="btn-secondary" onclick="exportarPDF()">📄 Descargar PDF</button>
+  <div style="margin-top: 0.5rem;"></div>
   <button class="btn-secondary" onclick="resetearDatos()">🗑️ Limpiar todos los registros</button>
   <p style="font-size:12px; color:var(--text-muted); text-align:center; margin-top:0.75rem;">El Excel incluye todas las laptops configuradas, con OK en las que no tienen incidencia registrada.</p>
 </div>
@@ -700,6 +704,54 @@ function exportarExcel() {
   XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
   XLSX.writeFile(wb, `Reporte_Laptops_${fecha}.xlsx`);
   showToast('📥 Excel descargado');
+}
+
+function exportarPDF() {
+  const fecha = document.getElementById('input-fecha').value || hoy.toLocaleDateString('es-CL').replace(/\//g, '-');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.setFillColor(26, 86, 219);
+  doc.rect(0, 0, 210, 22, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15);
+  doc.text('Reporte de Laptops', 14, 14);
+  doc.setFontSize(10);
+  doc.text('Fecha: ' + fecha, 150, 14);
+
+  const okCount = config.laptops.filter(l => !datos[l.num] || datos[l.num].estado === 'OK').length;
+  const fallaCount = config.laptops.length - okCount;
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(10);
+  doc.text(`Total: ${config.laptops.length}    OK: ${okCount}    Con incidencia: ${fallaCount}`, 14, 30);
+
+  const body = config.laptops.map(l => {
+    const d = datos[l.num];
+    return [
+      '#' + l.num.toString().padStart(2, '0'),
+      l.modelo,
+      d ? d.estado : 'OK',
+      d && d.estado === 'FALLA' ? d.incidencia : 'Sin incidencias'
+    ];
+  });
+
+  doc.autoTable({
+    startY: 36,
+    head: [['N°', 'Modelo', 'Estado', 'Incidencia / Observación']],
+    body,
+    styles: { fontSize: 8.5, cellPadding: 2.5 },
+    headStyles: { fillColor: [26, 86, 219], textColor: 255, fontStyle: 'bold' },
+    columnStyles: { 0: { cellWidth: 14 }, 1: { cellWidth: 42 }, 2: { cellWidth: 22 } },
+    didParseCell: function (data) {
+      if (data.section === 'body' && data.column.index === 2) {
+        if (data.cell.raw === 'FALLA') { data.cell.styles.textColor = [200, 30, 30]; data.cell.styles.fontStyle = 'bold'; }
+        else { data.cell.styles.textColor = [15, 123, 65]; }
+      }
+    }
+  });
+
+  doc.save(`Reporte_Laptops_${fecha}.pdf`);
+  showToast('📄 PDF descargado');
 }
 
 function resetearDatos() {
