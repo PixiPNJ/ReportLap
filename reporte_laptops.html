@@ -431,6 +431,7 @@
   <button class="tab" onclick="switchTab('laptops')">💻 Laptops</button>
   <button class="tab" onclick="switchTab('alumnos')">👥 Alumnos</button>
   <button class="tab" onclick="switchTab('exportar')">⬇️ Exportar</button>
+  <button class="tab" onclick="switchTab('respaldo')">🔄 Respaldo</button>
 </div>
 
 <!-- TAB REGISTRAR -->
@@ -527,6 +528,35 @@
   <p style="font-size:12px; color:var(--text-muted); text-align:center; margin-top:0.75rem;">El Excel incluye todas las laptops configuradas, con OK en las que no tienen incidencia registrada.</p>
 </div>
 
+<!-- TAB RESPALDO -->
+<div id="tab-respaldo" class="section">
+  <div class="card">
+    <label>📥 Exportar respaldo</label>
+    <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:0.75rem;">
+      Descarga un archivo JSON con toda la configuración, registros, alumnos y tema.
+    </p>
+    <div class="stats-row" style="margin-bottom:0.75rem;">
+      <div class="stat-box"><div class="stat-num" id="backup-config">—</div><div class="stat-label">Laptops</div></div>
+      <div class="stat-box"><div class="stat-num" id="backup-registros">—</div><div class="stat-label">Registros</div></div>
+      <div class="stat-box"><div class="stat-num" id="backup-alumnos">—</div><div class="stat-label">Alumnos</div></div>
+    </div>
+    <button class="btn-main" onclick="exportarRespaldo()">📥 Descargar JSON de respaldo</button>
+    <div style="margin-top:0.5rem;"></div>
+    <button class="btn-secondary" onclick="copiarRespaldo()">📋 Copiar al portapapeles</button>
+  </div>
+
+  <div class="card">
+    <label>📤 Importar respaldo</label>
+    <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:0.75rem;">
+      Selecciona un archivo JSON de respaldo anterior para restaurar todos los datos.
+      <strong style="color:var(--danger);">Esto reemplazará los datos actuales.</strong>
+    </p>
+    <input type="file" id="input-respaldo" accept=".json" onchange="importarRespaldo(this)" style="display:none;">
+    <button class="btn-main" onclick="document.getElementById('input-respaldo').click()">📤 Seleccionar archivo JSON</button>
+    <div id="respaldo-preview" style="margin-top:0.75rem; font-size:13px; color:var(--text-muted);"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -589,6 +619,7 @@ function switchTab(tab) {
   if (tab === 'laptops') renderLaptopsConfig();
   if (tab === 'alumnos') renderAlumnosTab();
   if (tab === 'registrar') renderSelectLaptops();
+  if (tab === 'respaldo') renderBackupStats();
 }
 
 /* ---------- Registrar ---------- */
@@ -895,6 +926,90 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ---------- Respaldo ---------- */
+const BACKUP_KEYS = [CONFIG_KEY, DATOS_KEY, ALUMNOS_KEY, THEME_KEY];
+
+function getResumenBackup() {
+  const cfg = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null') || {};
+  const dts = JSON.parse(localStorage.getItem(DATOS_KEY) || '{}');
+  const alm = JSON.parse(localStorage.getItem(ALUMNOS_KEY) || '{}');
+  const laptops = cfg.laptops ? cfg.laptops.length : 0;
+  const registros = Object.keys(dts).length;
+  const alumnosCount = Object.keys(alm).length;
+  return { laptops, registros, alumnosCount };
+}
+
+function renderBackupStats() {
+  const r = getResumenBackup();
+  const elCfg = document.getElementById('backup-config');
+  const elReg = document.getElementById('backup-registros');
+  const elAlm = document.getElementById('backup-alumnos');
+  if (elCfg) elCfg.textContent = r.laptops;
+  if (elReg) elReg.textContent = r.registros;
+  if (elAlm) elAlm.textContent = r.alumnosCount;
+}
+
+function exportarRespaldo() {
+  const backup = {};
+  BACKUP_KEYS.forEach(k => {
+    const val = localStorage.getItem(k);
+    if (val !== null) backup[k] = val;
+  });
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fecha = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `Respaldo_Laptops_${fecha}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📥 Respaldo descargado');
+}
+
+async function copiarRespaldo() {
+  const backup = {};
+  BACKUP_KEYS.forEach(k => {
+    const val = localStorage.getItem(k);
+    if (val !== null) backup[k] = val;
+  });
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(backup, null, 2));
+    showToast('📋 Copiado al portapapeles');
+  } catch (e) {
+    showToast('❌ No se pudo copiar');
+  }
+}
+
+function importarRespaldo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const backup = JSON.parse(e.target.result);
+      const preview = document.getElementById('respaldo-preview');
+      const keysFound = BACKUP_KEYS.filter(k => backup[k] !== undefined);
+      if (keysFound.length === 0) {
+        preview.innerHTML = '<span style="color:var(--danger);">❌ Archivo no válido. No contiene datos de respaldo.</span>';
+        input.value = '';
+        return;
+      }
+      if (!confirm(`¿Restaurar respaldo?\n\nSe encontraron ${keysFound.length} conjuntos de datos.\nEsto reemplazará los datos actuales.`)) {
+        input.value = '';
+        return;
+      }
+      keysFound.forEach(k => localStorage.setItem(k, backup[k]));
+      preview.innerHTML = '<span style="color:var(--success);">✅ Respaldo restaurado correctamente. Recargando...</span>';
+      showToast('✅ Respaldo importado');
+      setTimeout(() => location.reload(), 800);
+    } catch (err) {
+      document.getElementById('respaldo-preview').innerHTML = '<span style="color:var(--danger);">❌ Error al leer el archivo: ' + err.message + '</span>';
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
 }
 
 /* ---------- Init ---------- */
