@@ -408,8 +408,25 @@
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.4rem;
+    flex-wrap: wrap;
   }
-  .alumno-row input[type="text"] { flex: 1; padding: 0.55rem 0.7rem; font-size: 13.5px; }
+  .alumno-row input[type="text"] { flex: 1; padding: 0.55rem 0.7rem; font-size: 13.5px; min-width: 120px; }
+  .alumno-row select { 
+    padding: 0.4rem 0.7rem; 
+    font-size: 12px; 
+    width: auto; 
+    min-width: 70px;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    appearance: auto;
+    -webkit-appearance: auto;
+  }
+  .alumno-row select:focus {
+    border-color: var(--primary);
+    outline: none;
+  }
   .alumno-add-btn {
     width: 100%;
     padding: 0.5rem;
@@ -421,6 +438,11 @@
     font-weight: 600;
     cursor: pointer;
     margin-top: 0.2rem;
+  }
+  .alumno-row .curso-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 0 2px;
   }
 </style>
 </head>
@@ -515,7 +537,7 @@
   <div class="card">
     <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:0.75rem;">
       Los alumnos se asignan a cada tablet de forma individual (no al carro completo). Elige el carro y luego
-      la tablet específica para ver y editar sus 5 alumnos.
+      la tablet específica para ver y editar sus alumnos. Cada alumno tiene asignado un nivel (Básica/Media) y curso.
     </p>
     <label>Carro</label>
     <div class="select-wrapper">
@@ -614,9 +636,26 @@ function saveConfig() { localStorage.setItem(CONFIG_KEY, JSON.stringify(config))
 function saveDatos() { localStorage.setItem(DATOS_KEY, JSON.stringify(datos)); }
 function saveAlumnos() { localStorage.setItem(ALUMNOS_KEY, JSON.stringify(alumnos)); }
 function key(carroId, n) { return carroId + '_' + n; }
+
 function getAlumnos(k) {
-  if (!alumnos[k] || alumnos[k].length === 0) alumnos[k] = ['', '', '', '', ''];
+  if (!alumnos[k] || alumnos[k].length === 0) {
+    alumnos[k] = [{ nombre: '', nivel: 'basica', curso: '1' }];
+  }
+  // Asegurar que cada elemento tenga los campos necesarios (migración)
+  alumnos[k] = alumnos[k].map(a => {
+    if (typeof a === 'string') {
+      return { nombre: a, nivel: 'basica', curso: '1' };
+    }
+    return { nombre: a.nombre || '', nivel: a.nivel || 'basica', curso: a.curso || '1' };
+  });
   return alumnos[k];
+}
+
+function generarOpcionesCurso(nivel, selected) {
+  const opciones = nivel === 'basica' 
+    ? ['1', '2', '3', '4', '5', '6', '7', '8'] 
+    : ['1', '2', '3', '4'];
+  return opciones.map(c => `<option value="${c}" ${c === selected ? 'selected' : ''}>${c}°</option>`).join('');
 }
 
 /* ---------- Tema ---------- */
@@ -707,7 +746,8 @@ function onTabletChange() {
   document.getElementById('card-estado').style.display = 'block';
   document.getElementById('btn-guardar').style.display = 'block';
   const prev = datos[key(carroActual, n)];
-  const asignados = getAlumnos(key(carroActual, n)).filter(a => a.trim()).length;
+  const lista = getAlumnos(key(carroActual, n));
+  const asignados = lista.filter(a => a.nombre && a.nombre.trim()).length;
   const carro = config.carros.find(c => c.id === carroActual);
   document.getElementById('modelo-display').innerHTML = `<span class="badge badge-modelo">🖥️ ${carro.modelo}</span> <span class="badge badge-modelo">👥 ${asignados} alumno${asignados === 1 ? '' : 's'}</span>`;
   if (prev) {
@@ -926,17 +966,26 @@ function renderAlumnosTab() {
   const carro = config.carros.find(c => c.id === carroId);
   const n = parseInt(document.getElementById('sel-tablet-alumnos').value);
   if (!carro || !n) {
-    cont.innerHTML = '<div class="empty-state"><div class="icon">👥</div>Este carro no tiene tablets configuradas</div>';
+    cont.innerHTML = '<div class="empty-state"><div class="icon">👥</div>Selecciona un carro y una tablet</div>';
     return;
   }
   const k = key(carro.id, n);
   const lista = getAlumnos(k);
-  const asignados = lista.filter(a => a.trim()).length;
-  const inputs = lista.map((nombre, idx) => `
+  const asignados = lista.filter(a => a.nombre && a.nombre.trim()).length;
+  
+  const inputs = lista.map((alumno, idx) => `
     <div class="alumno-row">
-      <input type="text" value="${nombre.replace(/"/g,'&quot;')}" placeholder="Nombre del alumno ${idx + 1}" onchange="cambiarAlumno('${k}', ${idx}, this.value)">
-      ${lista.length > 1 ? `<button class="del-btn" onclick="quitarAlumno('${k}', ${idx})">✕</button>` : ''}
+      <input type="text" value="${alumno.nombre ? alumno.nombre.replace(/"/g,'&quot;') : ''}" placeholder="Nombre del alumno ${idx + 1}" onchange="cambiarAlumno('${k}', ${idx}, 'nombre', this.value)" style="min-width:120px;">
+      <select onchange="cambiarAlumno('${k}', ${idx}, 'nivel', this.value)" style="width:75px; padding:0.4rem 0.5rem; font-size:11px;">
+        <option value="basica" ${alumno.nivel === 'basica' ? 'selected' : ''}>Básica</option>
+        <option value="media" ${alumno.nivel === 'media' ? 'selected' : ''}>Media</option>
+      </select>
+      <select onchange="cambiarAlumno('${k}', ${idx}, 'curso', this.value)" style="width:60px; padding:0.4rem 0.5rem; font-size:11px;">
+        ${generarOpcionesCurso(alumno.nivel || 'basica', alumno.curso || '1')}
+      </select>
+      ${lista.length > 1 ? `<button class="del-btn" onclick="quitarAlumno('${k}', ${idx})" style="width:28px; height:28px; font-size:13px;">✕</button>` : ''}
     </div>`).join('');
+  
   cont.innerHTML = `
     <div class="alumno-card">
       <div class="ac-header">
@@ -951,13 +1000,29 @@ function renderAlumnosTab() {
     </div>`;
 }
 
-function cambiarAlumno(k, idx, valor) {
-  getAlumnos(k)[idx] = valor;
+function cambiarAlumno(k, idx, campo, valor) {
+  const lista = getAlumnos(k);
+  if (!lista[idx]) return;
+  
+  lista[idx][campo] = valor;
+  
+  // Si cambia el nivel, ajustar el curso a un valor válido
+  if (campo === 'nivel') {
+    const opciones = valor === 'basica' ? ['1', '2', '3', '4', '5', '6', '7', '8'] : ['1', '2', '3', '4'];
+    if (!opciones.includes(lista[idx].curso || '1')) {
+      lista[idx].curso = opciones[0];
+    }
+  }
+  
   saveAlumnos();
+  // Re-renderizar si estamos en la pestaña de alumnos
+  if (document.getElementById('tab-alumnos').classList.contains('active')) {
+    renderAlumnosTab();
+  }
 }
 
 function agregarAlumno(k) {
-  getAlumnos(k).push('');
+  getAlumnos(k).push({ nombre: '', nivel: 'basica', curso: '1' });
   saveAlumnos();
   renderAlumnosTab();
 }
@@ -976,14 +1041,22 @@ function exportarExcel() {
   const rows = [['Carro', 'Tablet N°', 'Modelo', 'Estado', 'Incidencia / Observación', 'Alumnos asignados', 'Fecha Reporte']];
   todosLosItems().forEach(it => {
     const d = datos[key(it.carroId, it.n)];
-    const nombresAlumnos = getAlumnos(key(it.carroId, it.n)).filter(a => a.trim()).join('; ') || 'Sin asignar';
+    const lista = getAlumnos(key(it.carroId, it.n));
+    const nombresConCurso = lista
+      .filter(a => a.nombre && a.nombre.trim())
+      .map(a => {
+        const nivelLabel = a.nivel === 'basica' ? 'Básica' : 'Media';
+        return `${a.nombre.trim()} (${nivelLabel} ${a.curso || '1'}°)`;
+      })
+      .join('; ') || 'Sin asignar';
+    
     rows.push([
       it.carroNombre,
       `Tablet #${it.n.toString().padStart(2, '0')}`,
       it.modelo,
       d ? d.estado : 'OK',
       d && d.estado === 'FALLA' ? d.incidencia : 'Sin incidencias',
-      nombresAlumnos,
+      nombresConCurso,
       fecha
     ]);
   });
@@ -1026,14 +1099,21 @@ function exportarPDF() {
 
   const body = items.map(it => {
     const d = datos[key(it.carroId, it.n)];
-    const nombresAlumnos = getAlumnos(key(it.carroId, it.n)).filter(a => a.trim()).join('; ') || 'Sin asignar';
+    const lista = getAlumnos(key(it.carroId, it.n));
+    const nombresConCurso = lista
+      .filter(a => a.nombre && a.nombre.trim())
+      .map(a => {
+        const nivelLabel = a.nivel === 'basica' ? 'Básica' : 'Media';
+        return `${a.nombre.trim()} (${nivelLabel} ${a.curso || '1'}°)`;
+      })
+      .join('; ') || 'Sin asignar';
     return [
       it.carroNombre,
       '#' + it.n.toString().padStart(2, '0'),
       it.modelo,
       d ? d.estado : 'OK',
       d && d.estado === 'FALLA' ? d.incidencia : 'Sin incidencias',
-      nombresAlumnos
+      nombresConCurso
     ];
   });
 
