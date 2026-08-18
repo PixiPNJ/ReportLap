@@ -350,6 +350,78 @@
   }
   .count-btn:active { background: var(--primary-light); }
   .count-num { font-size: 15px; font-weight: 700; min-width: 24px; text-align: center; }
+
+  /* --- Alumnos --- */
+  .add-btn {
+    width: 100%;
+    padding: 0.65rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px dashed var(--primary);
+    background: none;
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .del-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1.5px solid var(--danger);
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .alumno-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    margin-bottom: 0.6rem;
+    background: var(--card);
+  }
+  .alumno-card .ac-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0.6rem;
+  }
+  .alumno-card .ac-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--primary-light);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .alumno-card .ac-title { font-weight: 600; font-size: 13.5px; }
+  .alumno-card .ac-sub { font-size: 11px; color: var(--text-muted); }
+  .alumno-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+  .alumno-row input[type="text"] { flex: 1; padding: 0.55rem 0.7rem; font-size: 13.5px; }
+  .alumno-add-btn {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px dashed var(--primary);
+    background: none;
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.2rem;
+  }
 </style>
 </head>
 <body class="dark">
@@ -366,6 +438,7 @@
   <button class="tab active" onclick="switchTab('registrar')">✏️ Registrar</button>
   <button class="tab" onclick="switchTab('resumen')">📊 Resumen</button>
   <button class="tab" onclick="switchTab('carros')">🛒 Carros</button>
+  <button class="tab" onclick="switchTab('alumnos')">👥 Alumnos</button>
   <button class="tab" onclick="switchTab('exportar')">⬇️ Exportar</button>
 </div>
 
@@ -426,11 +499,35 @@
 <div id="tab-carros" class="section">
   <div class="card">
     <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">
-      Cada carro tiene su propio modelo de tablet. Ajusta el nombre, el modelo y la cantidad de tablets con + / −.
+      Cada carro tiene su propio modelo de tablet. Ajusta el nombre, el modelo y la cantidad de tablets con + / −,
+      o quítalo por completo con ✕. Usa "Agregar carro" para sumar uno nuevo (por ejemplo, si llega un modelo distinto).
     </p>
   </div>
   <div id="lista-carros-config"></div>
+  <button class="add-btn" onclick="agregarCarro()">➕ Agregar carro</button>
+  <div style="margin-top: 0.5rem;"></div>
   <button class="btn-secondary" onclick="resetearConfig()">↺ Restaurar valores por defecto (2 carros x 44)</button>
+</div>
+
+<!-- TAB ALUMNOS -->
+<div id="tab-alumnos" class="section">
+  <div class="card">
+    <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:0.75rem;">
+      Los alumnos se asignan a cada tablet de forma individual (no al carro completo). Elige el carro y luego
+      la tablet específica para ver y editar sus 5 alumnos.
+    </p>
+    <label>Carro</label>
+    <div class="select-wrapper">
+      <select id="sel-carro-alumnos" onchange="onCarroAlumnosChange()"></select>
+    </div>
+    <div style="margin-top:0.75rem;">
+      <label>Tablet N°</label>
+      <div class="select-wrapper">
+        <select id="sel-tablet-alumnos" onchange="renderAlumnosTab()"></select>
+      </div>
+    </div>
+  </div>
+  <div id="lista-alumnos-config"></div>
 </div>
 
 <!-- TAB EXPORTAR -->
@@ -463,6 +560,7 @@
 <script>
 const CONFIG_KEY = 'tabletcarro_config';
 const DATOS_KEY = 'tabletcarro_datos';
+const ALUMNOS_KEY = 'tabletcarro_alumnos';
 const THEME_KEY = 'tabletcarro_theme';
 
 function defaultConfig() {
@@ -476,6 +574,7 @@ function defaultConfig() {
 
 let config = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null') || defaultConfig();
 let datos = JSON.parse(localStorage.getItem(DATOS_KEY) || '{}');
+let alumnos = JSON.parse(localStorage.getItem(ALUMNOS_KEY) || '{}');
 let estadoActual = 'OK';
 let filtroActual = 'todas';
 let carroActual = null;
@@ -483,7 +582,12 @@ let tabletActual = null;
 
 function saveConfig() { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); }
 function saveDatos() { localStorage.setItem(DATOS_KEY, JSON.stringify(datos)); }
+function saveAlumnos() { localStorage.setItem(ALUMNOS_KEY, JSON.stringify(alumnos)); }
 function key(carroId, n) { return carroId + '_' + n; }
+function getAlumnos(k) {
+  if (!alumnos[k] || alumnos[k].length === 0) alumnos[k] = ['', '', '', '', ''];
+  return alumnos[k];
+}
 
 /* ---------- Tema ---------- */
 function applyTheme(theme) {
@@ -510,6 +614,7 @@ function switchTab(tab) {
   event.target.classList.add('active');
   if (tab === 'resumen' || tab === 'exportar') actualizarResumen();
   if (tab === 'carros') renderCarrosConfig();
+  if (tab === 'alumnos') { renderSelectCarrosAlumnos(); onCarroAlumnosChange(); }
   if (tab === 'registrar') renderSelectCarros();
 }
 
@@ -571,6 +676,9 @@ function onTabletChange() {
   document.getElementById('card-estado').style.display = 'block';
   document.getElementById('btn-guardar').style.display = 'block';
   const prev = datos[key(carroActual, n)];
+  const asignados = getAlumnos(key(carroActual, n)).filter(a => a.trim()).length;
+  const carro = config.carros.find(c => c.id === carroActual);
+  document.getElementById('modelo-display').innerHTML = `<span class="badge badge-modelo">🖥️ ${carro.modelo}</span> <span class="badge badge-modelo">👥 ${asignados} alumno${asignados === 1 ? '' : 's'}</span>`;
   if (prev) {
     setStatus(prev.estado);
     document.getElementById('txt-incidencia').value = prev.incidencia || '';
@@ -663,7 +771,10 @@ function renderCarrosConfig() {
   const cont = document.getElementById('lista-carros-config');
   cont.innerHTML = config.carros.map(c => `
     <div class="carro-config">
-      <input type="text" class="nombre-carro" value="${c.nombre.replace(/"/g,'&quot;')}" onchange="renombrarCarro('${c.id}', this.value)" placeholder="Nombre del carro">
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <input type="text" class="nombre-carro" style="flex:1;" value="${c.nombre.replace(/"/g,'&quot;')}" onchange="renombrarCarro('${c.id}', this.value)" placeholder="Nombre del carro">
+        <button class="del-btn" onclick="quitarCarro('${c.id}')">✕</button>
+      </div>
       <input type="text" value="${c.modelo.replace(/"/g,'&quot;')}" onchange="cambiarModelo('${c.id}', this.value)" placeholder="Modelo de tablet">
       <div class="count-row">
         <span class="count-label">Cantidad de tablets</span>
@@ -691,6 +802,30 @@ function cambiarModelo(carroId, nuevoModelo) {
   showToast('✏️ Modelo actualizado');
 }
 
+function agregarCarro() {
+  const nums = config.carros.map(c => parseInt(c.id.replace('c', '')) || 0);
+  const nextNum = nums.length ? Math.max(...nums) + 1 : 1;
+  config.carros.push({ id: 'c' + nextNum, nombre: 'Carro ' + nextNum, modelo: 'Nuevo modelo', cantidad: 0 });
+  saveConfig();
+  renderCarrosConfig();
+  showToast(`➕ Carro ${nextNum} agregado`);
+}
+
+function quitarCarro(carroId) {
+  const carro = config.carros.find(c => c.id === carroId);
+  const tieneRegistros = Object.keys(datos).some(k => k.startsWith(carroId + '_'));
+  if (tieneRegistros && !confirm(`${carro.nombre} tiene tablets con registros guardados. ¿Quitar el carro completo igual? Se perderá todo su historial.`)) return;
+  if (!tieneRegistros && !confirm(`¿Quitar ${carro.nombre} por completo?`)) return;
+  config.carros = config.carros.filter(c => c.id !== carroId);
+  Object.keys(datos).filter(k => k.startsWith(carroId + '_')).forEach(k => delete datos[k]);
+  Object.keys(alumnos).filter(k => k.startsWith(carroId + '_')).forEach(k => delete alumnos[k]);
+  saveConfig();
+  saveDatos();
+  saveAlumnos();
+  renderCarrosConfig();
+  showToast(`➖ ${carro.nombre} eliminado`);
+}
+
 function agregarTablet(carroId) {
   const carro = config.carros.find(c => c.id === carroId);
   carro.cantidad += 1;
@@ -706,6 +841,8 @@ function quitarTablet(carroId) {
   if (datos[key(carroId, lastN)] && !confirm('La última tablet de este carro tiene un registro guardado. ¿Quitarla igual? Se perderá su registro.')) return;
   carro.cantidad -= 1;
   delete datos[key(carroId, lastN)];
+  delete alumnos[key(carroId, lastN)];
+  saveAlumnos();
   saveConfig();
   saveDatos();
   renderCarrosConfig();
@@ -720,18 +857,102 @@ function resetearConfig() {
   showToast('↺ Configuración restaurada');
 }
 
+/* ---------- Alumnos asignados ---------- */
+function renderSelectCarrosAlumnos() {
+  const sel = document.getElementById('sel-carro-alumnos');
+  const prevVal = sel.value;
+  sel.innerHTML = '';
+  config.carros.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = `${c.nombre} — ${c.modelo}`;
+    sel.appendChild(opt);
+  });
+  if ([...sel.options].some(o => o.value === prevVal)) sel.value = prevVal;
+}
+
+function onCarroAlumnosChange() {
+  const carroId = document.getElementById('sel-carro-alumnos').value;
+  const carro = config.carros.find(c => c.id === carroId);
+  const selT = document.getElementById('sel-tablet-alumnos');
+  selT.innerHTML = '';
+  if (!carro || carro.cantidad === 0) {
+    document.getElementById('lista-alumnos-config').innerHTML = '<div class="empty-state"><div class="icon">👥</div>Este carro no tiene tablets configuradas</div>';
+    return;
+  }
+  for (let n = 1; n <= carro.cantidad; n++) {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = `Tablet #${n.toString().padStart(2, '0')}`;
+    selT.appendChild(opt);
+  }
+  renderAlumnosTab();
+}
+
+function renderAlumnosTab() {
+  const cont = document.getElementById('lista-alumnos-config');
+  const carroId = document.getElementById('sel-carro-alumnos').value;
+  const carro = config.carros.find(c => c.id === carroId);
+  const n = parseInt(document.getElementById('sel-tablet-alumnos').value);
+  if (!carro || !n) {
+    cont.innerHTML = '<div class="empty-state"><div class="icon">👥</div>Este carro no tiene tablets configuradas</div>';
+    return;
+  }
+  const k = key(carro.id, n);
+  const lista = getAlumnos(k);
+  const asignados = lista.filter(a => a.trim()).length;
+  const inputs = lista.map((nombre, idx) => `
+    <div class="alumno-row">
+      <input type="text" value="${nombre.replace(/"/g,'&quot;')}" placeholder="Nombre del alumno ${idx + 1}" onchange="cambiarAlumno('${k}', ${idx}, this.value)">
+      ${lista.length > 1 ? `<button class="del-btn" onclick="quitarAlumno('${k}', ${idx})">✕</button>` : ''}
+    </div>`).join('');
+  cont.innerHTML = `
+    <div class="alumno-card">
+      <div class="ac-header">
+        <div class="ac-num">${n}</div>
+        <div>
+          <div class="ac-title">${carro.nombre} — Tablet #${n}</div>
+          <div class="ac-sub">${carro.modelo} · ${asignados} alumno${asignados === 1 ? '' : 's'} asignado${asignados === 1 ? '' : 's'}</div>
+        </div>
+      </div>
+      ${inputs}
+      <button class="alumno-add-btn" onclick="agregarAlumno('${k}')">+ Agregar alumno</button>
+    </div>`;
+}
+
+function cambiarAlumno(k, idx, valor) {
+  getAlumnos(k)[idx] = valor;
+  saveAlumnos();
+}
+
+function agregarAlumno(k) {
+  getAlumnos(k).push('');
+  saveAlumnos();
+  renderAlumnosTab();
+}
+
+function quitarAlumno(k, idx) {
+  const lista = getAlumnos(k);
+  if (lista.length <= 1) return;
+  lista.splice(idx, 1);
+  saveAlumnos();
+  renderAlumnosTab();
+}
+
 /* ---------- Exportar ---------- */
 function exportarExcel() {
   const fecha = document.getElementById('input-fecha').value || hoy.toLocaleDateString('es-CL').replace(/\//g, '-');
-  const rows = [['Carro', 'Tablet N°', 'Modelo', 'Estado', 'Incidencia / Observación', 'Fecha Reporte']];
+  const rows = [['Carro', 'Tablet N°', 'Modelo', 'Estado', 'Incidencia / Observación', 'Alumnos asignados', 'Fecha Reporte']];
   todosLosItems().forEach(it => {
     const d = datos[key(it.carroId, it.n)];
+    const nombresAlumnos = getAlumnos(key(it.carroId, it.n)).filter(a => a.trim()).join('; ') || 'Sin asignar';
     rows.push([
       it.carroNombre,
       `Tablet #${it.n.toString().padStart(2, '0')}`,
       it.modelo,
       d ? d.estado : 'OK',
       d && d.estado === 'FALLA' ? d.incidencia : 'Sin incidencias',
+      nombresAlumnos,
       fecha
     ]);
   });
@@ -740,11 +961,11 @@ function exportarExcel() {
   const ws = XLSX.utils.aoa_to_sheet(rows);
 
   ws['!cols'] = [
-    { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 50 }, { wch: 14 }
+    { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 50 }, { wch: 45 }, { wch: 14 }
   ];
 
   const headerStyle = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { patternType: 'solid', fgColor: { rgb: '1a56db' } }, alignment: { horizontal: 'center' } };
-  ['A1','B1','C1','D1','E1','F1'].forEach(ref => {
+  ['A1','B1','C1','D1','E1','F1','G1'].forEach(ref => {
     if (ws[ref]) ws[ref].s = headerStyle;
   });
 
@@ -774,22 +995,24 @@ function exportarPDF() {
 
   const body = items.map(it => {
     const d = datos[key(it.carroId, it.n)];
+    const nombresAlumnos = getAlumnos(key(it.carroId, it.n)).filter(a => a.trim()).join('; ') || 'Sin asignar';
     return [
       it.carroNombre,
       '#' + it.n.toString().padStart(2, '0'),
       it.modelo,
       d ? d.estado : 'OK',
-      d && d.estado === 'FALLA' ? d.incidencia : 'Sin incidencias'
+      d && d.estado === 'FALLA' ? d.incidencia : 'Sin incidencias',
+      nombresAlumnos
     ];
   });
 
   doc.autoTable({
     startY: 36,
-    head: [['Carro', 'N°', 'Modelo', 'Estado', 'Incidencia / Observación']],
+    head: [['Carro', 'N°', 'Modelo', 'Estado', 'Incidencia / Observación', 'Alumnos asignados']],
     body,
-    styles: { fontSize: 8.5, cellPadding: 2.5 },
+    styles: { fontSize: 7, cellPadding: 2 },
     headStyles: { fillColor: [26, 86, 219], textColor: 255, fontStyle: 'bold' },
-    columnStyles: { 0: { cellWidth: 24 }, 1: { cellWidth: 14 }, 2: { cellWidth: 28 }, 3: { cellWidth: 20 } },
+    columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 12 }, 2: { cellWidth: 22 }, 3: { cellWidth: 16 }, 4: { cellWidth: 45 } },
     didParseCell: function (data) {
       if (data.section === 'body' && data.column.index === 3) {
         if (data.cell.raw === 'FALLA') { data.cell.styles.textColor = [200, 30, 30]; data.cell.styles.fontStyle = 'bold'; }
